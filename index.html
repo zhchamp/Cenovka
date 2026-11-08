@@ -165,11 +165,42 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
 .dc .sh{font-size:.78rem!important;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 .lab{font-size:.78rem!important;letter-spacing:.06em!important}
 .brand svg{border-radius:10px}
+
+body{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))!important}
+#tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:.5px solid var(--sep);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs{display:flex;max-width:560px;margin:0 auto}
+.tab{all:unset;box-sizing:border-box;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 6px;font-size:.68rem;font-weight:500;color:var(--muted);cursor:pointer;min-height:56px}
+.tab.on{color:var(--ink)}
+.tab:focus-visible{outline:2px solid var(--ink);outline-offset:-4px;border-radius:10px}
+.ti{position:relative;display:block;height:26px}
+.tb{position:absolute;top:-4px;right:-10px;min-width:16px;height:16px;border-radius:8px;background:var(--ink);color:var(--bg);font-size:.65rem;font-weight:700;display:grid;place-items:center;padding:0 4px}
+.shoptile{width:56px;height:56px;border-radius:16px;background:var(--bg);display:grid;place-items:center;font-weight:700;font-size:1.05rem;letter-spacing:.04em;flex:none;margin-right:2px}
+.shopnav{gap:14px!important}
+.shopnav .left{flex:1;text-align:left;min-width:0}
+ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
+.meta{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lrow .name,.row2 .name{text-align:left}
+
+.av{width:44px!important;height:44px!important;border-radius:12px!important}
+.av svg{width:24px;height:24px}
+.lrow{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 14px}
+.lrow .left{flex:1;min-width:0}
+.av.big{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:var(--bg);color:var(--ink);flex:none}
+.pr2{font-weight:700;color:var(--ink)}
+.stepper{display:flex;align-items:center;border:1px solid var(--sep);border-radius:999px;background:var(--bg);flex:none}
+.stepper button{all:unset;box-sizing:border-box;width:30px;height:34px;display:grid;place-items:center;font-size:1.1rem;cursor:pointer;color:var(--ink)}
+.stepper button:focus-visible{outline:2px solid var(--ink);border-radius:50%}
+.qv{min-width:18px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+.lx{all:unset;box-sizing:border-box;width:26px;text-align:center;color:var(--muted);cursor:pointer;font-size:1.3rem}
+.sumcard{display:flex;justify-content:space-between;align-items:baseline;gap:12px;background:var(--surface);border-radius:14px;padding:14px 16px}
+.sumcard b{font-size:1.25rem}
+.sv{color:var(--good);font-weight:600;font-size:.9rem}
 </style>
 
 </head>
 <body>
 <div class="wrap" id="app"></div>
+<nav id="tabs" aria-label="Hlavní nabídka"></nav>
 
 <script>
 (function(){
@@ -309,7 +340,6 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
     var kauf = live.filter(isK).sort(function(a, b){return pct(b) - pct(a)}).slice(0, 8);
     var top = live.filter(function(r){return !isK(r) && pct(r) >= 20}).sort(function(a, b){return pct(b) - pct(a)}).slice(0, 6);
     var soon = live.filter(function(r){var d = daysLeft(r); return d !== null && d <= 1}).sort(function(a, b){return (daysLeft(a) - daysLeft(b)) || (pct(b) - pct(a))}).slice(0, 4);
-    var lcount = lst.filter(function(x){return !x.done}).length;
     var active = items.filter(function(i){return i.status !== 'koupeno'});
     return '<header><div class="brand"><svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="var(--ink)"/><g transform="rotate(-18 20 20)" fill="none" stroke="var(--bg)" stroke-width="2" stroke-linejoin="round"><path d="M9 14h14q2 0 3.5 1.5L31 20l-4.5 4.5Q25 26 23 26H9z"/></g><circle cx="13" cy="20" r="1.8" fill="var(--bg)"/></svg><h1>Cenovka</h1></div><p class="sub">Hledejte ve slevách nebo vyberte kategorii.</p></header>' +
       '<form class="search" id="sForm" autocomplete="off" role="search">' + MAG +
@@ -323,7 +353,6 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
       (top.length ? '<p class="lab">Další obchody</p><div class="scroll">' + top.map(dealCard).join('') + '</div>' : '') +
       '<p class="lab">Kategorie</p><div class="tiles">' + Object.keys(DEALS).map(function(k){var d = DEALS[k], n = dealsFor(k).length;
         return '<button type="button" class="tile" data-go="' + k + '" ><span class="ico">' + icon(k) + '</span><span><b>' + esc(d.title) + '</b><span class="s">' + (n ? n + ' slev' : esc(d.sub)) + '</span></span></button>'}).join('') + '</div>' +
-      '<ul class="group"><li><button type="button" class="nav" data-go="seznam"><span class="left"><span class="name">Nákupní seznam</span><span class="meta">' + (lcount ? lcount + ' položek k nákupu' : 'Zatím prázdný') + '</span></span>' + CHEV + '</button></li></ul>' +
       (active.length ? '<ul class="group"><li><button type="button" class="nav" data-go="sledovane"><span class="left"><span class="name">Sledované věci</span><span class="meta">' + active.length + ' položek s cílovou cenou</span></span>' + CHEV + '</button></li></ul>' : '');
   }
   function submenu(key){
@@ -333,6 +362,63 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
         var n = dealsFor(r.to).length;
         return '<li><button type="button" class="nav" data-go="' + r.to + '"><span class="left"><span class="name">' + esc(r.title) + '</span><span class="meta">' + esc(r.sub) + (n ? ' · ' + n : '') + '</span></span>' + CHEV + '</button></li>';
       }).join('') + '</ul>';
+  }
+
+  function canon(sh){var l = (sh || '').toLowerCase(); for (var i = 0; i < SHOPS.length; i++) if (l.indexOf(SHOPS[i].toLowerCase()) === 0) return SHOPS[i]; return sh || 'Jinde'}
+  function liveDeals(){return deals.filter(function(r){return daysLeft(r) !== -1})}
+  var TAB = {
+    '': ['Domů', '<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>'],
+    'obchody': ['Obchody', '<path d="M4 9l1.500-5h13L20 9"/><path d="M4 9v11h16V9"/><path d="M4 9c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0"/>'],
+    'akce': ['Akce', '<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.500"/><circle cx="17" cy="17" r="2.500"/>'],
+    'seznam': ['Seznam', '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>']
+  };
+  function activeTab(){
+    if (route === 'obchody' || route.indexOf('obchod-') === 0) return 'obchody';
+    if (route === 'akce') return 'akce';
+    if (route === 'seznam') return 'seznam';
+    return '';
+  }
+  function tabbar(){
+    var n = lst.filter(function(x){return !x.done}).length, at = activeTab();
+    return '<div class="tabs">' + Object.keys(TAB).map(function(k){
+      return '<button type="button" class="tab' + (at === k ? ' on' : '') + '" data-go="' + k + '"' + (at === k ? ' aria-current="page"' : '') + '><span class="ti"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + TAB[k][1] + '</svg>' +
+        (k === 'seznam' && n ? '<span class="tb">' + n + '</span>' : '') + '</span><span>' + TAB[k][0] + '</span></button>'}).join('') + '</div>';
+  }
+  function shopsScreen(){
+    var live = liveDeals(), by = {};
+    SHOPS.forEach(function(x){by[x] = []});
+    live.forEach(function(r){var c = canon(r.shop); (by[c] = by[c] || []).push(r)});
+    var names = Object.keys(by).filter(function(k){return by[k].length}).sort(function(a, b){return (a === 'Kaufland' ? 0 : 1) - (b === 'Kaufland' ? 0 : 1) || by[b].length - by[a].length});
+    return '<header><h1>Obchody</h1><p class="sub">Slevy podle obchodu</p></header>' +
+      (names.length ? '<ul class="group">' + names.map(function(k){
+        var soon = by[k].filter(function(r){var d = daysLeft(r); return d !== null && d <= 1}).length;
+        return '<li><button type="button" class="nav shopnav" data-go="obchod-' + norm(k).replace(/[^a-z0-9]+/g, '') + '"><span class="shoptile" aria-hidden="true">' + esc(k.slice(0, 2).toUpperCase()) + '</span><span class="left"><span class="name">' + esc(k) + '</span><span class="meta">' + by[k].length + ' slev' + (soon ? ' · ' + soon + ' končí brzy' : '') + '</span></span>' + CHEV + '</button></li>'}).join('') + '</ul>'
+      : '<div class="empty"><b>Slevy se načítají</b>Zkuste to za chvíli.</div>');
+  }
+  function shopScreen(slug){
+    var name = SHOPS.filter(function(x){return norm(x).replace(/[^a-z0-9]+/g, '') === slug.replace('obchod-', '')})[0] || slug.replace('obchod-', '');
+    var rows = liveDeals().filter(function(r){return canon(r.shop) === name});
+    var html = '<button type="button" class="back" data-go="obchody">‹ Obchody</button><header><h1>' + esc(name) + '</h1><p class="sub">' + rows.length + ' slev</p></header>';
+    Object.keys(DEALS).forEach(function(k){
+      var rs = rows.filter(function(r){return r.section === k}).sort(function(a, b){return pct(b) - pct(a)});
+      if (rs.length) html += '<p class="lab">' + esc(DEALS[k].title) + '</p><ul class="group">' + rs.map(resultRow).join('') + '</ul>';
+    });
+    return html + (rows.length ? '' : '<div class="empty"><b>V tomto obchodě zatím nic není</b></div>');
+  }
+  var catF = '';
+  function akceScreen(){
+    var rows = liveDeals().filter(function(r){return !catF || r.section === catF});
+    rows.sort(function(a, b){
+      if (sortF === 'cena') return (a.price || 1e12) - (b.price || 1e12);
+      if (sortF === 'konci'){var x = daysLeft(a), y = daysLeft(b); return (x === null ? 99 : x) - (y === null ? 99 : y) || pct(b) - pct(a)}
+      return pct(b) - pct(a);
+    });
+    var cats = '<div class="chips"><button type="button" class="chip' + (!catF ? ' on' : '') + '" data-cat="">Vše</button>' + Object.keys(DEALS).map(function(k){
+      return '<button type="button" class="chip' + (catF === k ? ' on' : '') + '" data-cat="' + k + '">' + esc(DEALS[k].title) + '</button>'}).join('') + '</div>';
+    var sorts = '<div class="chips">' + [['sleva', 'Největší sleva'], ['cena', 'Nejnižší cena'], ['konci', 'Končí brzy']].map(function(o){
+      return '<button type="button" class="chip' + (sortF === o[0] ? ' on' : '') + '" data-sort="' + o[0] + '">' + o[1] + '</button>'}).join('') + '</div>';
+    return '<header><h1>Akce</h1><p class="sub">' + rows.length + ' slev ze všech obchodů</p></header>' + cats + sorts +
+      (rows.length ? '<ul class="group">' + rows.slice(0, 80).map(resultRow).join('') + '</ul>' : '<div class="empty"><b>Nic nenalezeno</b></div>');
   }
   function pct(r){return r.was && r.price && r.was > r.price ? Math.round((1 - r.price / r.was) * 100) : 0}
   function dealScreen(key){
@@ -358,21 +444,26 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
   function listScreen(){
     var open = lst.filter(function(x){return !x.done}), done = lst.filter(function(x){return x.done});
     var groups = {};
-    open.forEach(function(x){var k = x.shop || 'Jinde'; (groups[k] = groups[k] || []).push(x)});
-    var kf = function(n){return n.toLowerCase().indexOf('kaufland') === 0 ? 0 : 1};
+    open.forEach(function(x){var k = canon(x.shop); (groups[k] = groups[k] || []).push(x)});
+    var kf = function(n){return n === 'Kaufland' ? 0 : 1};
     var names = Object.keys(groups).sort(function(a, b){return kf(a) - kf(b) || a.localeCompare(b, 'cs')});
-    var total = open.reduce(function(m, x){return m + (x.unit === 'kg' ? 0 : (x.price || 0))}, 0);
+    var total = 0, save = 0;
+    open.forEach(function(x){var q = x.qty || 1; total += (x.price || 0) * q; if (x.was && x.price && x.was > x.price) save += (x.was - x.price) * q});
     function li(x){
-      return '<li class="rw"><button type="button" class="chk' + (x.done ? ' on' : '') + '" data-act="toggle" data-id="' + esc(x.id) + '" aria-label="' + (x.done ? 'Vrátit mezi nenakoupené' : 'Označit jako nakoupené') + '">' +
-        (x.done ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '') + '</button>' +
-        '<span class="rowlink" style="cursor:default' + (x.done ? ';opacity:.5' : '') + '"><span class="left"><span class="name"' + (x.done ? ' style="text-decoration:line-through"' : '') + '>' + esc(x.name) + '</span><span class="meta">' + (x.until ? 'do ' + esc(dmy(x.until) || x.until) : '') + '</span></span>' +
-        '<span class="right"><span class="price">' + (x.price ? money(x.price, x.unit) : '–') + '</span></span></span>' +
-        '<button type="button" class="addb" data-act="lrm" data-id="' + esc(x.id) + '" aria-label="Odebrat ze seznamu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>';
+      var q = x.qty || 1, un = x.unit === 'kg' ? 'kg' : 'ks', dl = daysLeft(x), end = dl !== null && dl < 0 ? '<span class="soon">sleva již není platná</span>' : untilText(x);
+      return '<li class="lrow"><span class="av big" aria-hidden="true">' + itemIcon(x).replace(/^<span class="av"[^>]*>/, '').replace(/<\/span>$/, '') + '</span>' +
+        '<span class="left"><span class="name"' + (x.done ? ' style="text-decoration:line-through;opacity:.5"' : '') + '>' + esc(x.name) + '</span>' +
+        '<span class="meta"><b class="pr2">' + (x.price ? money(x.price, x.unit) : '–') + '</b>' + (end ? ' · ' + end : '') + '</span></span>' +
+        '<span class="stepper"><button type="button" data-act="qm" data-id="' + esc(x.id) + '" aria-label="Méně">−</button><span class="qv" aria-label="' + q + ' ' + un + '">' + q + '</span><button type="button" data-act="qp" data-id="' + esc(x.id) + '" aria-label="Více">+</button></span>' +
+        '<button type="button" class="chk' + (x.done ? ' on' : '') + '" data-act="toggle" data-id="' + esc(x.id) + '" aria-label="' + (x.done ? 'Vrátit mezi nenakoupené' : 'Označit jako nakoupené') + '">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.500 4.500L19 7.500"/></svg></button>' +
+        '<button type="button" class="lx" data-act="lrm" data-id="' + esc(x.id) + '" aria-label="Odebrat ze seznamu">×</button></li>';
     }
-    return '<button type="button" class="back" data-go="">‹ Cenovka</button><header><h1>Nákupní seznam</h1><p class="sub">' + (open.length ? (open.length === 1 ? '1 položka' : open.length < 5 ? open.length + ' položky' : open.length + ' položek') + (total ? ' · kusové zboží ' + money(total) : '') : 'Přidávejte slevy tlačítkem +') + '</p></header>' +
+    return '<header><h1>Nákupní seznam</h1></header>' +
+      (open.length ? '<div class="sumcard"><span>Cena nákupu</span><span><b>' + money(Math.round(total * 10) / 10) + '</b>' + (save > 0.5 ? ' <span class="sv">ušetříte ' + money(Math.round(save)) + '</span>' : '') + '</span></div>' : '') +
       (!lst.length ? '<div class="empty"><b>Seznam je prázdný</b>Ve slevách klepněte na + vedle položky.</div>' : '') +
-      names.map(function(n){return '<p class="lab">' + esc(n) + '</p><ul class="group">' + groups[n].map(li).join('') + '</ul>'}).join('') +
-      (done.length ? '<p class="lab">Nakoupeno</p><ul class="group">' + done.map(li).join('') + '</ul><div class="bar"><button class="btn" type="button" data-act="clear">Smazat nakoupené</button></div>' : '');
+      names.map(function(n){return '<p class="lab">' + esc(n) + '</p><ul class="group lg">' + groups[n].map(li).join('') + '</ul>'}).join('') +
+      (done.length ? '<p class="lab">Nakoupeno</p><ul class="group lg">' + done.map(li).join('') + '</ul><div class="bar"><button class="btn" type="button" data-act="clear">Smazat nakoupené</button></div>' : '');
   }
   function watched(){
     var rows = items.filter(function(i){return i.status !== 'koupeno'}).map(function(it){
@@ -407,6 +498,9 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
   function render(){
     var html;
     if (DEALS[route]) html = dealScreen(route);
+    else if (route === 'obchody') html = shopsScreen();
+    else if (route.indexOf('obchod-') === 0) html = shopScreen(route);
+    else if (route === 'akce') html = akceScreen();
     else if (route === 'sledovane') html = watched();
     else if (route === 'seznam') html = listScreen();
     else html = home();
@@ -416,6 +510,7 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
     var q = document.getElementById('sq');
     if (q && val){q.value = val; if (had) q.focus()}
     updateLocal();
+    var tb = document.getElementById('tabs'); if (tb) tb.innerHTML = tabbar();
   }
 
   function fire(id){
@@ -438,6 +533,7 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
 
   app.addEventListener('click', function(e){
     var sh = e.target.closest('[data-shop]'); if (sh){shopF = sh.getAttribute('data-shop'); saveShop(shopF); render(); return}
+    var ct = e.target.closest('[data-cat]'); if (ct){catF = ct.getAttribute('data-cat'); render(); return}
     var so = e.target.closest('[data-sort]'); if (so){sortF = so.getAttribute('data-sort'); render(); return}
     var c = e.target.closest('.chip[data-q]'); if (c){var qi = document.getElementById('sq'); qi.value = c.getAttribute('data-q'); updateLocal(); return}
     var g = e.target.closest('[data-go]'); if (g){go(g.getAttribute('data-go')); return}
@@ -446,9 +542,10 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
     if (act === 'web'){}
     else if (act === 'list' && db){
       var dd = deals.filter(function(x){return x.id === id})[0];
-      if (dd) db.doc('list/' + key(dd)).set({name: dd.name, price: dd.price || null, unit: dd.unit || '', shop: dd.shop || '', until: dd.until || '', url: dd.url || '', done: false, addedAt: new Date().toISOString()}).catch(function(){note = 'Přidání se nepovedlo.'; render()});
+      if (dd) db.doc('list/' + key(dd)).set({name: dd.name, price: dd.price || null, was: dd.was || null, unit: dd.unit || '', qty: 1, shop: dd.shop || '', until: dd.until || '', url: dd.url || '', done: false, addedAt: new Date().toISOString()}).catch(function(){note = 'Přidání se nepovedlo.'; render()});
     }
     else if (act === 'unlist' && db){var d2 = deals.filter(function(x){return x.id === id})[0]; if (d2) db.doc('list/' + key(d2)).delete().catch(function(){})}
+    else if ((act === 'qp' || act === 'qm') && db){var q0 = lst.filter(function(x){return x.id === id})[0]; if (q0) db.doc('list/' + id).update({qty: Math.max(1, (q0.qty || 1) + (act === 'qp' ? 1 : -1))})}
     else if (act === 'toggle' && db){var it = lst.filter(function(x){return x.id === id})[0]; if (it) db.doc('list/' + id).update({done: !it.done}).catch(function(){})}
     else if (act === 'lrm' && db) db.doc('list/' + id).delete().catch(function(){})
     else if (act === 'clear' && db) lst.filter(function(x){return x.done}).forEach(function(x){db.doc('list/' + x.id).delete().catch(function(){})})
@@ -468,6 +565,7 @@ h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
     updateLocal();
   });
   app.addEventListener('input', function(e){if (e.target.id === 'sq') updateLocal()});
+  document.getElementById('tabs').addEventListener('click', function(e){var g = e.target.closest('[data-go]'); if (g) go(g.getAttribute('data-go'))});
   window.addEventListener('hashchange', function(){route = location.hash.slice(1); confirmId = null; anim = true; render()});
   route = location.hash.slice(1);
   render();
