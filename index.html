@@ -195,6 +195,11 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
 .sumcard{display:flex;justify-content:space-between;align-items:baseline;gap:12px;background:var(--surface);border-radius:14px;padding:14px 16px}
 .sumcard b{font-size:1.25rem}
 .sv{color:var(--good);font-weight:600;font-size:.9rem}
+.up{font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fut{color:#B26A00;font-weight:600}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .fut{color:#FFB340}}:root[data-theme="dark"] .fut{color:#FFB340}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.tag{font-size:.7rem;font-weight:600;padding:1px 7px;border-radius:6px;background:var(--fill);color:var(--muted)}
 </style>
 
 </head>
@@ -204,7 +209,6 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
 
 <script>
 (function(){
-  var SEARCH_TRIGGER = 'trig_01Tov7Sr2qMhfdeTUS3xsZf9';
   var DEALS = {
     'jidlo-maso': {c: '#FFD9D2', title: 'Maso', e: '🥩', sub: 'Hovězí, kuřecí, vepřové'},
     'ovoce': {c: '#DDF2C9', title: 'Ovoce a zelenina', e: '🥕', sub: 'Čerstvé a sezónní'},
@@ -222,14 +226,15 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     'kocky-jidlo': '<path d="M5 5l4 3h6l4-3v9a7 7 0 0 1-14 0z"/><circle cx="9.5" cy="13" r=".8"/><circle cx="14.5" cy="13" r=".8"/>'
   };
   function icon(k){return '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[k] + '</svg>'}
-  var SHOPS = ['Kaufland', 'Lidl', 'Albert', 'Penny', 'Billa', 'Tesco'];
+  var SHOPS = ['Kaufland', 'Lidl', 'Albert', 'Penny', 'Billa', 'Tesco', 'Globus'];
   var anim = true, updated = '';
-  function loadShop(){try{var v = localStorage.getItem('cenovka-shop'); return v === 'all' ? '' : (v || 'Kaufland')}catch(e){return 'Kaufland'}}
+  function loadShop(){try{var v = localStorage.getItem('cenovka-shop'); return v && v !== 'all' ? v : ''}catch(e){return ''}}
   function saveShop(v){try{localStorage.setItem('cenovka-shop', v || 'all')}catch(e){}}
   var shopF = loadShop();
-  var db = null, mcp = null, loaded = {jobs: false, deals: false, items: false};
-  var jobs = [], deals = [], items = [], lst = [], hist = {}, sortF = 'sleva', route = '', fireFailed = {}, lastFire = 0, note = '', confirmId = null;
+  var db = null, loaded = {deals: false};
+  var deals = [], items = [], lst = [], hist = {}, sortF = 'sleva', route = '', note = '';
   var nf = new Intl.NumberFormat('cs-CZ', {maximumFractionDigits: 1});
+  var nf2 = new Intl.NumberFormat('cs-CZ', {maximumFractionDigits: 2});
   var app = document.getElementById('app');
 
   function esc(s){return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
@@ -240,8 +245,6 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     return parseInt(m[3], 10) + '. ' + parseInt(m[2], 10) + '.';
   }
   var CHEV = '<svg class="chev" width="9" height="15" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.5l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var CAT = '🐱';
-  var FOOD = '🍗';
   var MAG = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 12l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
   function norm(t){return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}
@@ -279,25 +282,23 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     return r.price <= mn ? '<span class="hn good">Nejnižší cena za sledované období</span>' : '<span class="hn">Dříve od ' + money(mn, r.unit) + '</span>';
   }
   function dealsFor(sec){return deals.filter(function(d){return d.section === sec && daysLeft(d) !== -1}).sort(function(a, b){return (a.price || 0) - (b.price || 0)})}
-  function pendingJob(pred){
-    return jobs.filter(function(j){return (j.status === 'pending' || j.status === 'running') && pred(j)})[0];
-  }
 
   var SC = {lidl:'#0050AA', albert:'#00963F', kaufland:'#E10915', penny:'#CD1719', billa:'#E30613', tesco:'#00539F'};
   function shopColor(n){var k = (n || '').toLowerCase().split(/[\s.]/)[0]; if (SC[k]) return SC[k]; var h = 0; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) % 360; return 'hsl(' + h + ' 45% 42%)'}
   function avatar(n){return '<span class="av" style="background:' + shopColor(n) + '" aria-hidden="true">' + esc((n || '?').charAt(0).toUpperCase()) + '</span>'}
   function untilText(r){
+    if (notYet(r)) return '<span class="fut">platí od ' + dmy(fromDate(r)) + '</span>' + (r.until ? ' do ' + esc(dmy(r.until) || r.until) : '');
     var d = daysLeft(r);
     if (d === 0) return '<span class="soon">končí dnes</span>';
     if (d === 1) return '<span class="soon">končí zítra</span>';
     return r.until ? 'do ' + esc(dmy(r.until) || r.until) : '';
   }
   function resultRow(r){
-    var url = safeUrl(r.url), p = pct(r), un = untilText(r), isDeal = !!r.section, on = isDeal && inList(r);
+    var url = safeUrl(r.url), p = pct(r), un = untilText(r), cn = cleanNote(r.note), up = unitPrice(r), isDeal = !!r.section, on = isDeal && inList(r);
     var left = '<span class="row2">' + itemIcon(r) + '<span class="left"><span class="name">' + esc(r.name) + '</span><span class="meta">' + esc(r.shop || '') +
-      (un ? ' · ' + un : '') + (r.note ? ' · ' + esc(r.note) : '') + '</span>' + histNote(r) + '</span></span>';
+      (un ? ' · ' + un : '') + (cn ? ' · ' + esc(cn) : '') + '</span>' + tagsHtml(r) + histNote(r) + '</span></span>';
     var right = '<span class="right"><span class="price">' + (r.price ? money(r.price, r.unit) : '–') + '</span>' +
-      (r.was && r.was > r.price ? '<span class="was">' + money(r.was, r.unit) + '</span>' : '') + (p ? '<span class="badge">−' + p + ' %</span>' : '') + '</span>';
+      (r.was && r.was > r.price ? '<span class="was">' + money(r.was, r.unit) + '</span>' : '') + (p ? '<span class="badge">−' + p + ' %</span>' : '') + (up && r.unit !== 'kg' ? '<span class="up">' + nf2.format(up.v) + ' Kč/' + up.u + '</span>' : '') + '</span>';
     var main = url ? '<a class="rowlink" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + left + right + '</a>'
       : '<div class="rowlink" style="cursor:default">' + left + right + '</div>';
     var add = isDeal && db ? '<button type="button" class="addb' + (on ? ' in' : '') + '" data-act="' + (on ? 'unlist' : 'list') + '" data-id="' + esc(r.id) + '" aria-label="' + (on ? 'Odebrat ze seznamu' : 'Přidat do nákupního seznamu') + '">' +
@@ -306,7 +307,8 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
   }
   function dealCard(r){
     var url = safeUrl(r.url), p = pct(r);
-    var inner = '<span class="pc">−' + p + ' %</span><span class="nm">' + esc(r.name) + '</span><span class="pr">' + money(r.price, r.unit) + '</span><span class="sh">' + esc(r.shop || '') + (daysLeft(r) !== null && daysLeft(r) <= 1 ? ' · končí ' + (daysLeft(r) === 0 ? 'dnes' : 'zítra') : '') + '</span>';
+    var dl = daysLeft(r), when = notYet(r) ? ' · od ' + dmy(fromDate(r)) : (dl !== null && dl <= 1 ? ' · končí ' + (dl === 0 ? 'dnes' : 'zítra') : '');
+    var inner = '<span class="pc">' + (p ? '−' + p + ' %' : 'akce') + '</span><span class="nm">' + esc(r.name) + '</span><span class="pr">' + money(r.price, r.unit) + '</span><span class="sh">' + esc(canon(r.shop)) + when + '</span>';
     return url ? '<a class="dc" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + inner + '</a>' : '<div class="dc">' + inner + '</div>';
   }
   function spark(ps){
@@ -316,25 +318,8 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     var last = pts.split(' ').pop().split(',');
     return '<svg class="spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Vývoj ceny"><polyline points="' + pts + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="' + last[0] + '" cy="' + last[1] + '" r="3.5" fill="var(--accent)"/></svg>';
   }
-  function jobCard(j){
-    var head = '<div class="jhead"><b>' + esc(j.q) + '</b><button class="x" type="button" data-act="dismiss" data-id="' + esc(j.id) + '" aria-label="Skrýt hledání">×</button></div>';
-    var body;
-    if (j.status === 'pending' || j.status === 'running'){
-      body = '<p class="wait"><span class="spin"></span>Hledám ceny…</p><p class="hint">Obvykle 1 až 3 minuty, výsledek se objeví tady.' +
-        (fireFailed[j.id] ? ' Hledání se nespustilo hned, proběhne při nejbližší kontrole.' : '') + '</p>' +
-        (fireFailed[j.id] ? '<div class="bar" style="padding:0 16px 14px"><button class="btn" type="button" data-act="fire" data-id="' + esc(j.id) + '">Spustit znovu</button></div>' : '');
-    } else if (j.status === 'error'){
-      body = '<p class="sum">' + esc(j.summary || 'Hledání se nepovedlo.') + '</p>';
-    } else {
-      var rs = (j.results || []).slice().sort(function(a, b){return (a.price || 1e12) - (b.price || 1e12)});
-      body = (j.summary ? '<p class="sum">' + esc(j.summary) + '</p>' : '') +
-        (rs.length ? '<ul class="group" style="border-radius:0">' + rs.map(resultRow).join('') + '</ul>' : '<p class="sum">Nic se nenašlo.</p>');
-    }
-    return '<div class="card">' + head + body + '</div>';
-  }
 
   function home(){
-    var searches = jobs.filter(function(j){return j.type === 'search' && !j.hidden}).slice(0, 3);
     var live = deals.filter(function(r){return daysLeft(r) !== -1});
     var isK = function(r){return (r.shop || '').toLowerCase().indexOf('kaufland') === 0};
     var kauf = live.filter(isK).sort(function(a, b){return pct(b) - pct(a)}).slice(0, 8);
@@ -346,25 +331,20 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
       '<input id="sq" type="search" enterkeyhint="search" placeholder="Hledat ve slevách…" aria-label="Co hledáte?" maxlength="120">' +
       '</form>' +
       '<div id="local"></div>' + (note ? '<p class="status">' + esc(note) + '</p>' : '') +
-      searches.map(jobCard).join('') +
       '<div class="chips">' + ['kuřecí prsa','hovězí mleté','stelivo pro kočky','granule pro kočky'].map(function(c){return '<button type="button" class="chip" data-q="' + c + '">' + c + '</button>'}).join('') + '</div>' +
       (kauf.length ? '<p class="lab">Kaufland · nejlepší slevy</p><div class="scroll">' + kauf.map(dealCard).join('') + '</div>' : '') +
       (soon.length ? '<p class="lab">Končí brzy</p><ul class="group">' + soon.map(resultRow).join('') + '</ul>' : '') +
       (top.length ? '<p class="lab">Další obchody</p><div class="scroll">' + top.map(dealCard).join('') + '</div>' : '') +
       '<p class="lab">Kategorie</p><div class="tiles">' + Object.keys(DEALS).map(function(k){var d = DEALS[k], n = dealsFor(k).length;
-        return '<button type="button" class="tile" data-go="' + k + '" ><span class="ico">' + icon(k) + '</span><span><b>' + esc(d.title) + '</b><span class="s">' + (n ? n + ' slev' : esc(d.sub)) + '</span></span></button>'}).join('') + '</div>' +
-      (active.length ? '<ul class="group"><li><button type="button" class="nav" data-go="sledovane"><span class="left"><span class="name">Sledované věci</span><span class="meta">' + active.length + ' položek s cílovou cenou</span></span>' + CHEV + '</button></li></ul>' : '');
-  }
-  function submenu(key){
-    var t = TREE[key];
-    return '<button type="button" class="back" data-go="' + t.parent + '">‹ Cenovka</button><header><h1>' + esc(t.title) + '</h1></header>' +
-      '<ul class="group">' + t.rows.map(function(r){
-        var n = dealsFor(r.to).length;
-        return '<li><button type="button" class="nav" data-go="' + r.to + '"><span class="left"><span class="name">' + esc(r.title) + '</span><span class="meta">' + esc(r.sub) + (n ? ' · ' + n : '') + '</span></span>' + CHEV + '</button></li>';
-      }).join('') + '</ul>';
+        return '<button type="button" class="tile" data-go="' + k + '" ><span class="ico">' + icon(k) + '</span><span><b>' + esc(d.title) + '</b><span class="s">' + (n ? slev(n) : esc(d.sub)) + '</span></span></button>'}).join('') + '</div>' +
+      (active.length ? '<ul class="group"><li><button type="button" class="nav" data-go="sledovane"><span class="left"><span class="name">Sledované věci</span><span class="meta">' + active.length + ' ' + plural(active.length, 'položka', 'položky', 'položek') + '</span></span>' + CHEV + '</button></li></ul>' : '');
   }
 
-  function canon(sh){var l = (sh || '').toLowerCase(); for (var i = 0; i < SHOPS.length; i++) if (l.indexOf(SHOPS[i].toLowerCase()) === 0) return SHOPS[i]; return sh || 'Jinde'}
+  function canon(sh){var l = (sh || '').trim().toLowerCase(); for (var i = 0; i < SHOPS.length; i++) if (l.indexOf(SHOPS[i].toLowerCase()) === 0) return SHOPS[i]; return (sh || '').trim() || 'Jinde'}
+  function slug(n){return norm(n).replace(/[^a-z0-9]+/g, '')}
+  function shopOrder(a, b){var x = SHOPS.indexOf(a), y = SHOPS.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || a.localeCompare(b, 'cs')}
+  function plural(n, a, b, c){return n === 1 ? a : n >= 2 && n <= 4 ? b : c}
+  function slev(n){return n + ' ' + plural(n, 'sleva', 'slevy', 'slev')}
   function liveDeals(){return deals.filter(function(r){return daysLeft(r) !== -1})}
   var TAB = {
     '': ['Domů', '<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>'],
@@ -392,13 +372,13 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     return '<header><h1>Obchody</h1><p class="sub">Slevy podle obchodu</p></header>' +
       (names.length ? '<ul class="group">' + names.map(function(k){
         var soon = by[k].filter(function(r){var d = daysLeft(r); return d !== null && d <= 1}).length;
-        return '<li><button type="button" class="nav shopnav" data-go="obchod-' + norm(k).replace(/[^a-z0-9]+/g, '') + '"><span class="shoptile" aria-hidden="true">' + esc(k.slice(0, 2).toUpperCase()) + '</span><span class="left"><span class="name">' + esc(k) + '</span><span class="meta">' + by[k].length + ' slev' + (soon ? ' · ' + soon + ' končí brzy' : '') + '</span></span>' + CHEV + '</button></li>'}).join('') + '</ul>'
+        return '<li><button type="button" class="nav shopnav" data-go="obchod-' + slug(k) + '"><span class="shoptile" aria-hidden="true">' + esc(k.slice(0, 2).toUpperCase()) + '</span><span class="left"><span class="name">' + esc(k) + '</span><span class="meta">' + slev(by[k].length) + (soon ? ' · ' + soon + ' končí brzy' : '') + '</span></span>' + CHEV + '</button></li>'}).join('') + '</ul>'
       : '<div class="empty"><b>Slevy se načítají</b>Zkuste to za chvíli.</div>');
   }
-  function shopScreen(slug){
-    var name = SHOPS.filter(function(x){return norm(x).replace(/[^a-z0-9]+/g, '') === slug.replace('obchod-', '')})[0] || slug.replace('obchod-', '');
-    var rows = liveDeals().filter(function(r){return canon(r.shop) === name});
-    var html = '<button type="button" class="back" data-go="obchody">‹ Obchody</button><header><h1>' + esc(name) + '</h1><p class="sub">' + rows.length + ' slev</p></header>';
+  function shopScreen(rt){
+    var sl = rt.replace('obchod-', ''), rows = liveDeals().filter(function(r){return slug(canon(r.shop)) === sl});
+    var name = rows.length ? canon(rows[0].shop) : (SHOPS.filter(function(x){return slug(x) === sl})[0] || sl);
+    var html = '<button type="button" class="back" data-go="obchody">‹ Obchody</button><header><h1>' + esc(name) + '</h1><p class="sub">' + slev(rows.length) + '</p></header>';
     Object.keys(DEALS).forEach(function(k){
       var rs = rows.filter(function(r){return r.section === k}).sort(function(a, b){return pct(b) - pct(a)});
       if (rs.length) html += '<p class="lab">' + esc(DEALS[k].title) + '</p><ul class="group">' + rs.map(resultRow).join('') + '</ul>';
@@ -408,36 +388,75 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
   var catF = '';
   function akceScreen(){
     var rows = liveDeals().filter(function(r){return !catF || r.section === catF});
-    rows.sort(function(a, b){
-      if (sortF === 'cena') return (a.price || 1e12) - (b.price || 1e12);
-      if (sortF === 'konci'){var x = daysLeft(a), y = daysLeft(b); return (x === null ? 99 : x) - (y === null ? 99 : y) || pct(b) - pct(a)}
-      return pct(b) - pct(a);
-    });
+    sortRows(rows);
     var cats = '<div class="chips"><button type="button" class="chip' + (!catF ? ' on' : '') + '" data-cat="">Vše</button>' + Object.keys(DEALS).map(function(k){
       return '<button type="button" class="chip' + (catF === k ? ' on' : '') + '" data-cat="' + k + '">' + esc(DEALS[k].title) + '</button>'}).join('') + '</div>';
-    var sorts = '<div class="chips">' + [['sleva', 'Největší sleva'], ['cena', 'Nejnižší cena'], ['konci', 'Končí brzy']].map(function(o){
-      return '<button type="button" class="chip' + (sortF === o[0] ? ' on' : '') + '" data-sort="' + o[0] + '">' + o[1] + '</button>'}).join('') + '</div>';
-    return '<header><h1>Akce</h1><p class="sub">' + rows.length + ' slev ze všech obchodů</p></header>' + cats + sorts +
+    var sorts = sortChips();
+    return '<header><h1>Akce</h1><p class="sub">' + slev(rows.length) + ' ze všech obchodů</p></header>' + cats + sorts +
       (rows.length ? '<ul class="group">' + rows.slice(0, 80).map(resultRow).join('') + '</ul>' : '<div class="empty"><b>Nic nenalezeno</b></div>');
   }
-  function pct(r){return r.was && r.price && r.was > r.price ? Math.round((1 - r.price / r.was) * 100) : 0}
-  function dealScreen(key){
-    var d = DEALS[key], all = dealsFor(key), upd = all.reduce(function(m, r){return r.d && r.d > m ? r.d : m}, '');
-    var rows = shopF ? all.filter(function(r){return (r.shop || '').toLowerCase().indexOf(shopF.toLowerCase()) === 0}) : all.slice();
-    rows.sort(function(a, b){
+  function num(s){return parseFloat(String(s).replace(',', '.'))}
+  // Sleva: z původní ceny, jinak z poznámky („sleva -36 %“, „(-44 %)“, „běžná cena 14,63/ks“).
+  function pct(r){
+    if (r.was && r.price && r.was > r.price) return Math.round((1 - r.price / r.was) * 100);
+    var n = norm(r.note), m = /[-−–]\s*(\d{1,2})\s*%/.exec(n);
+    if (m) return +m[1];
+    var b = /bezna cena\s*(\d+(?:,\d+)?)/.exec(n), u = /(\d+(?:,\d+)?)\s*kc\/(?:kapsick\w*|ks)/.exec(n);
+    if (b && u){var x = num(u[1]), y = num(b[1]); if (y > x) return Math.round((1 - x / y) * 100)}
+    return 0;
+  }
+  // Začátek platnosti: pole „from“, nebo „platí (až) od 11. 11.“ v poznámce.
+  function fromDate(r){
+    if (/^\d{4}-\d{2}-\d{2}/.test(r.from || '')) return r.from.slice(0, 10);
+    var m = /plati (?:az )?od (\d{1,2})\.\s*(\d{1,2})\./.exec(norm(r.note)); if (!m) return '';
+    var ref = /^\d{4}-\d{2}/.test(r.until || '') ? r.until : today(), y = +ref.slice(0, 4), mo = +m[2];
+    if (mo > +ref.slice(5, 7)) y--;
+    return y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  }
+  function notYet(r){var f = fromDate(r); return !!f && f > today()}
+  // Cena za jednotku z poznámky („77,67 Kč/l“, „6,13 Kč/kapsička“), u kg přímo cena.
+  var UO = {'kapsička': 0, ks: 1, l: 2, kg: 3, '100 g': 4};
+  function unitPrice(r){
+    if (r.unit === 'kg' && r.price) return {v: r.price, u: 'kg'};
+    var re = /(\d+(?:,\d+)?)\s*kc\/(kg|l|ks|kapsick\w*|100\s?g)\b/g, n = norm(r.note), m, best = null;
+    while ((m = re.exec(n))){
+      var u = /^kapsick/.test(m[2]) ? 'kapsička' : /^100/.test(m[2]) ? '100 g' : m[2];
+      if (!best || UO[u] < UO[best.u]) best = {v: num(m[1]), u: u};
+    }
+    return best;
+  }
+  function cardTag(r){var n = norm(r.note); return /lidl plus/.test(n) ? 'Lidl Plus' : /klubov\w* kart|s kartou/.test(n) ? 's kartou' : ''}
+  function tagsHtml(r){var t = cardTag(r); return t ? '<span class="tags"><span class="tag">' + t + '</span></span>' : ''}
+  // Poznámka bez věcí, které už ukazuje štítek, procento nebo datum.
+  function cleanNote(t){
+    return String(t || '').replace(/\(\s*(?:sleva\s*)?[-−–]\s*\d{1,2}\s*%\s*\)/gi, '').replace(/(?:sleva\s*)?[-−–]\s*\d{1,2}\s*%/gi, '')
+      .replace(/platí\s+(?:až\s+)?od\s+\d{1,2}\.\s*\d{1,2}\./gi, '').replace(/,?\s*jen s (?:klubovou kartou|aplikací Lidl Plus)/gi, '')
+      .replace(/\s+([,;])/g, '$1').replace(/[,;]\s*(?=[,;]|$)/g, '').replace(/^\s*[,;]\s*/, '').replace(/\s{2,}/g, ' ').trim();
+  }
+  function sortRows(rows){
+    return rows.sort(function(a, b){
       if (sortF === 'cena') return (a.price || 1e12) - (b.price || 1e12);
-      if (sortF === 'konci'){var x = daysLeft(a), y = daysLeft(b); return (x === null ? 99 : x) - (y === null ? 99 : y) || pct(b) - pct(a)}
+      if (sortF === 'jednotka'){var x = unitPrice(a), y = unitPrice(b); if (!x || !y) return (x ? 0 : 1) - (y ? 0 : 1); return (UO[x.u] - UO[y.u]) || x.v - y.v}
+      if (sortF === 'konci'){var p = daysLeft(a), q = daysLeft(b); return (p === null ? 99 : p) - (q === null ? 99 : q) || pct(b) - pct(a)}
       return pct(b) - pct(a);
     });
-    var busy = pendingJob(function(j){return j.type === 'deals' && j.section === key});
-    var chips = '<div class="chips"><button type="button" class="chip' + (!shopF ? ' on' : '') + '" data-shop="">Vše</button>' + SHOPS.map(function(sh){
-      return '<button type="button" class="chip' + (shopF === sh ? ' on' : '') + '" data-shop="' + sh + '">' + sh + '</button>'}).join('') + '</div>';
-    var sorts = '<div class="chips">' + [['sleva', 'Největší sleva'], ['cena', 'Nejnižší cena'], ['konci', 'Končí brzy']].map(function(o){
-      return '<button type="button" class="chip' + (sortF === o[0] ? ' on' : '') + '" data-sort="' + o[0] + '">' + o[1] + '</button>'}).join('') + '</div>';
+  }
+  function sortChips(){
+    return '<div class="chips">' + [['sleva', 'Největší sleva'], ['cena', 'Nejnižší cena'], ['jednotka', 'Za kg / l / ks'], ['konci', 'Končí brzy']].map(function(o){
+      return '<button type="button" class="chip' + (sortF === o[0] ? ' on' : '') + '" data-sort="' + o[0] + '" aria-pressed="' + (sortF === o[0]) + '">' + o[1] + '</button>'}).join('') + '</div>';
+  }
+  function dealScreen(key){
+    var d = DEALS[key], all = dealsFor(key), upd = all.reduce(function(m, r){return r.d && r.d > m ? r.d : m}, '');
+    var rows = shopF ? all.filter(function(r){return canon(r.shop) === shopF}) : all.slice();
+    var here = {}; all.forEach(function(r){here[canon(r.shop)] = 1}); if (shopF) here[shopF] = 1;
+    sortRows(rows);
+    var chips = '<div class="chips"><button type="button" class="chip' + (!shopF ? ' on' : '') + '" data-shop="">Vše</button>' + Object.keys(here).sort(shopOrder).map(function(sh){
+      return '<button type="button" class="chip' + (shopF === sh ? ' on' : '') + '" data-shop="' + esc(sh) + '">' + esc(sh) + '</button>'}).join('') + '</div>';
+    var sorts = sortChips();
     return '<button type="button" class="back" data-go="">‹ Cenovka</button>' +
       '<header><h1>' + esc(d.title) + '</h1><p class="sub">' + esc(d.sub) + (upd ? ' · aktualizováno ' + dmy(upd) : '') + '</p></header>' + chips + sorts +
       (rows.length ? '<ul class="group">' + rows.map(resultRow).join('') + '</ul>' :
-        (!loaded.deals ? '<ul class="group"><li class="sk"></li><li class="sk"></li><li class="sk"></li><li class="sk"></li></ul>' : '<div class="empty"><b>' + (busy ? 'Hledám slevy…' : (all.length ? 'V tomto obchodě nic není' : 'Slevy se zatím nenačetly')) + '</b>' + (busy ? 'Obvykle to trvá 1 až 3 minuty.' : 'Klepněte na Obnovit slevy.') + '</div>')) +
+        (!loaded.deals ? '<ul class="group"><li class="sk"></li><li class="sk"></li><li class="sk"></li><li class="sk"></li></ul>' : (all.length ? '<div class="empty"><b>V tomto obchodě teď nic není</b>Zkuste jiný obchod nebo Vše.</div>' : '<div class="empty"><b>V této kategorii teď nejsou slevy</b>Podívejte se po další aktualizaci.</div>'))) +
       '<p class="status">Slevy se aktualizují každé pondělí a čtvrtek ráno.</p>' +
       (note ? '<p class="status">' + esc(note) + '</p>' : '');
   }
@@ -448,7 +467,7 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     var kf = function(n){return n === 'Kaufland' ? 0 : 1};
     var names = Object.keys(groups).sort(function(a, b){return kf(a) - kf(b) || a.localeCompare(b, 'cs')});
     var total = 0, save = 0;
-    open.forEach(function(x){var q = x.qty || 1; total += (x.price || 0) * q; if (x.was && x.price && x.was > x.price) save += (x.was - x.price) * q});
+    open.forEach(function(x){var q = x.qty || 1; total += (x.price || 0) * q; var pp = pct(x); if (x.was && x.price && x.was > x.price) save += (x.was - x.price) * q; else if (pp && x.price) save += x.price * pp / (100 - pp) * q});
     function li(x){
       var q = x.qty || 1, un = x.unit === 'kg' ? 'kg' : 'ks', dl = daysLeft(x), end = dl !== null && dl < 0 ? '<span class="soon">sleva již není platná</span>' : untilText(x);
       return '<li class="lrow"><span class="av big" aria-hidden="true">' + itemIcon(x).replace(/^<span class="av"[^>]*>/, '').replace(/<\/span>$/, '') + '</span>' +
@@ -479,8 +498,7 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
 
   function localMatches(q){
     var words = norm(q).split(/\s+/).filter(Boolean); if (!words.length) return [];
-    var pool = deals.slice(), seen = {};
-    jobs.forEach(function(j){if (j.type === 'search' && j.status === 'done') (j.results || []).forEach(function(r){pool.push(r)})});
+    var pool = liveDeals(), seen = {};
     return pool.filter(function(r){
       var hay = norm((r.name || '') + ' ' + (r.shop || '') + ' ' + (r.note || ''));
       var k = hay + '|' + r.price; if (seen[k]) return false; seen[k] = 1;
@@ -491,8 +509,8 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     var box = document.getElementById('local'), q = document.getElementById('sq'); if (!box || !q) return;
     var t = q.value.trim();
     if (!t){box.innerHTML = ''; return}
-    var m = localMatches(t), busy = jobs.filter(function(j){return j.type === 'search' && !j.hidden && j.q === t && (j.status === 'pending' || j.status === 'running')}).length;
-    box.innerHTML = (m.length ? '<p class="lab">Už nalezeno · ' + m.length + '</p><ul class="group">' + m.map(resultRow).join('') + '</ul>' : '<div class="empty"><b>V uložených slevách nic není</b>Zkuste hledání na internetu.</div>') +
+    var m = localMatches(t);
+    box.innerHTML = (m.length ? '<p class="lab">Už nalezeno · ' + m.length + '</p><ul class="group">' + m.map(resultRow).join('') + '</ul>' : '<div class="empty"><b>V aktuálních slevách nic není</b>Zkuste jiné slovo.</div>') +
       '<p class="status">Nenašlo se? Napište Claude do chatu, co hledáte, a najde to na internetu.</p>';
   }
   function render(){
@@ -513,20 +531,8 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     var tb = document.getElementById('tabs'); if (tb) tb.innerHTML = tabbar();
   }
 
-  function fire(id){
-    if (!mcp) {if (id) fireFailed[id] = true; render(); return Promise.resolve()}
-    if (Date.now() - lastFire < 20000 && !id) return Promise.resolve();
-    lastFire = Date.now();
-    return mcp.callTool('Claude Code Remote', 'fire_trigger', {trigger_id: SEARCH_TRIGGER, text: 'Zpracuj čekající úkoly v kolekci jobs.'})
-      .then(function(){if (id) delete fireFailed[id]; render()}, function(){jobs.forEach(function(j){if (j.status === 'pending') fireFailed[j.id] = true}); render()});
-  }
-  function addJob(rec){
-    if (!db) return Promise.resolve();
-    rec.status = 'pending'; rec.createdAt = new Date().toISOString();
-    return db.collection('jobs').add(rec).then(function(ref){return fire(ref.id)}, function(){note = 'Uložení se nepovedlo, zkuste to znovu.'; render()});
-  }
   function go(r){
-    route = r; confirmId = null; note = ''; anim = true;
+    route = r; note = ''; anim = true;
     if (location.hash.slice(1) !== r) location.hash = r;
     render(); window.scrollTo(0, 0);
   }
@@ -539,25 +545,15 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
     var g = e.target.closest('[data-go]'); if (g){go(g.getAttribute('data-go')); return}
     var b = e.target.closest('[data-act]'); if (!b) return;
     var act = b.getAttribute('data-act'), id = b.getAttribute('data-id');
-    if (act === 'web'){}
-    else if (act === 'list' && db){
+    if (act === 'list' && db){
       var dd = deals.filter(function(x){return x.id === id})[0];
-      if (dd) db.doc('list/' + key(dd)).set({name: dd.name, price: dd.price || null, was: dd.was || null, unit: dd.unit || '', qty: 1, shop: dd.shop || '', until: dd.until || '', url: dd.url || '', done: false, addedAt: new Date().toISOString()}).catch(function(){note = 'Přidání se nepovedlo.'; render()});
+      if (dd) db.doc('list/' + key(dd)).set({name: dd.name, price: dd.price || null, was: dd.was || null, unit: dd.unit || '', qty: 1, shop: dd.shop || '', until: dd.until || '', note: dd.note || '', url: dd.url || '', done: false, addedAt: new Date().toISOString()}).catch(function(){note = 'Přidání se nepovedlo.'; render()});
     }
     else if (act === 'unlist' && db){var d2 = deals.filter(function(x){return x.id === id})[0]; if (d2) db.doc('list/' + key(d2)).delete().catch(function(){})}
     else if ((act === 'qp' || act === 'qm') && db){var q0 = lst.filter(function(x){return x.id === id})[0]; if (q0) db.doc('list/' + id).update({qty: Math.max(1, (q0.qty || 1) + (act === 'qp' ? 1 : -1))})}
     else if (act === 'toggle' && db){var it = lst.filter(function(x){return x.id === id})[0]; if (it) db.doc('list/' + id).update({done: !it.done}).catch(function(){})}
     else if (act === 'lrm' && db) db.doc('list/' + id).delete().catch(function(){})
     else if (act === 'clear' && db) lst.filter(function(x){return x.done}).forEach(function(x){db.doc('list/' + x.id).delete().catch(function(){})})
-    else if (act === 'dismiss' && db) db.doc('jobs/' + id).update({hidden: true}).catch(function(){});
-    else if (act === 'fire') fire(id);
-    else if (act === 'refresh'){
-      var sec = b.getAttribute('data-section');
-      if (!pendingJob(function(j){return j.type === 'deals' && j.section === sec})) addJob({type: 'deals', section: sec});
-    } else if (act === 'rm' && db){
-      if (confirmId === id){confirmId = null; db.doc('items/' + id).delete().catch(function(){})}
-      else {confirmId = id; render()}
-    }
   });
   app.addEventListener('submit', function(e){
     if (e.target.id !== 'sForm') return;
@@ -566,7 +562,7 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
   });
   app.addEventListener('input', function(e){if (e.target.id === 'sq') updateLocal()});
   document.getElementById('tabs').addEventListener('click', function(e){var g = e.target.closest('[data-go]'); if (g) go(g.getAttribute('data-go'))});
-  window.addEventListener('hashchange', function(){route = location.hash.slice(1); confirmId = null; anim = true; render()});
+  window.addEventListener('hashchange', function(){route = location.hash.slice(1); anim = true; render(); window.scrollTo(0, 0)});
   route = location.hash.slice(1);
   render();
 
@@ -586,7 +582,7 @@ ul>li:first-child>.shopnav .shoptile{background:var(--ink);color:var(--bg)}
   };
   fetch('data.json?v=' + Date.now()).then(function(r){return r.json()}).then(function(d){
     deals = d.deals || []; hist = d.hist || {}; items = d.items || []; updated = d.updated || '';
-    loaded.jobs = loaded.deals = loaded.items = true; render();
+    loaded.deals = true; render();
   }).catch(function(){status('Data se nepodařilo načíst. Zkontrolujte připojení.')});
 })();
 </script>
