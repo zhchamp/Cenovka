@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cenovka</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cenovka">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+
+<style>html{color-scheme:light dark}body{margin:0}</style>
+<style>
+/* Koncept: hledání nahoře, pod ním velké dlaždice. Dlaždice vedou do podnabídek a ty ke slevám, které vybírá Claude. */
+:root{
+  --bg:#FFFFFF; --surface:#F5F5F7; --ink:#1D1D1F; --muted:#6E6E73; --sep:rgba(0,0,0,.09);
+  --accent:#1D1D1F; --accent-ink:#FFFFFF; --fill:rgba(0,0,0,.05);
+  --good:#0A7D33; --good-bg:transparent; --danger:#C62828;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#000000; --surface:#1C1C1E; --ink:#F5F5F7; --muted:#98989D; --sep:rgba(255,255,255,.12);
+  --accent:#F5F5F7; --accent-ink:#000000; --fill:rgba(255,255,255,.08); --good:#30D158; --danger:#FF6961; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000000; --surface:#1C1C1E; --ink:#F5F5F7; --muted:#98989D; --sep:rgba(255,255,255,.12);
+  --accent:#F5F5F7; --accent-ink:#000000; --fill:rgba(255,255,255,.08); --good:#30D158; --danger:#FF6961; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.35;-webkit-font-smoothing:antialiased;
+  padding-block:max(12px,env(safe-area-inset-top,0px)) max(56px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-size:2.125rem;line-height:1.1;font-weight:700;letter-spacing:-.02em;margin:0}
+.sub{color:var(--muted);font-size:.95rem;margin:4px 0 0}
+.back{all:unset;box-sizing:border-box;color:var(--accent);cursor:pointer;font-size:1.05rem;padding:8px 0;display:inline-flex;align-items:center;gap:2px;min-height:44px}
+.back:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.search{display:flex;align-items:center;gap:10px;background:var(--surface);box-shadow:0 2px 12px rgba(120,70,20,.1);border-radius:999px;padding-left:6px;padding:0 12px;min-height:46px}
+.search svg{flex:none;color:var(--muted)}
+.search input{font:inherit;font-size:1.05rem;color:var(--ink);background:transparent;border:0;outline:0;width:100%;min-width:0;padding:11px 0;-webkit-appearance:none;appearance:none}
+.search input::placeholder{color:var(--muted)}
+.search:focus-within{box-shadow:0 0 0 2px var(--accent)}
+.go{all:unset;box-sizing:border-box;flex:none;color:var(--accent);font-weight:600;cursor:pointer;padding:8px 2px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}.tile{min-height:0!important;gap:14px!important;padding:14px!important}.tile b{font-size:1.1rem!important}.ico{width:48px!important;height:48px!important;font-size:26px!important}
+.tile{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border-radius:24px;padding:16px;display:flex;flex-direction:column;gap:24px;min-height:160px;box-shadow:0 2px 12px rgba(120,70,20,.08)}
+.tile:focus-visible,.nav:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ico{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;font-size:30px;line-height:1}
+.ico.cat{background:var(--t-cat)} .ico.food{background:var(--t-food)}
+.tile b{display:block;font-size:1.3rem;font-weight:700;letter-spacing:-.01em}
+.tile span.s{display:block;color:#555;font-size:.9rem;margin-top:2px}
+.group{background:var(--surface);border-radius:20px;margin:0;padding:0;list-style:none;overflow:hidden}
+.group>li+li{border-top:.5px solid var(--sep)}
+.nav,.rowlink{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;cursor:pointer;min-height:60px;color:inherit}
+.chev{color:var(--muted);flex:none}
+.left{display:flex;flex-direction:column;gap:2px;min-width:0}
+.name{font-weight:600;overflow-wrap:anywhere}
+.meta{color:var(--muted);font-size:.85rem;overflow-wrap:anywhere}
+.right{display:flex;flex-direction:column;align-items:flex-end;flex:none;gap:2px}
+.price{font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.was{font-size:.8rem;color:var(--muted);text-decoration:line-through;font-variant-numeric:tabular-nums}
+.badge{font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--good-bg);color:var(--good)}
+.card{background:var(--surface);border-radius:20px;overflow:hidden}
+.jhead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:.5px solid var(--sep)}
+.jhead b{overflow-wrap:anywhere}
+.x{all:unset;cursor:pointer;color:var(--muted);font-size:1.4rem;line-height:1;padding:4px 8px;box-sizing:border-box}
+.x:focus-visible{outline:2px solid var(--accent);border-radius:6px}
+.wait{display:flex;align-items:center;gap:10px;margin:0;padding:14px 16px 4px;font-weight:500}
+.hint{margin:0;padding:0 16px 14px;color:var(--muted);font-size:.88rem}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--fill);border-top-color:var(--accent);flex:none}
+@media (prefers-reduced-motion:no-preference){.spin{animation:sp 0.9s linear infinite}}
+@keyframes sp{to{transform:rotate(360deg)}}
+.sum{margin:0;padding:12px 16px;color:var(--muted);font-size:.9rem}
+.btn{font:inherit;font-weight:600;border:0;border-radius:999px;padding:10px 16px;min-height:44px;cursor:pointer;background:var(--fill);color:var(--accent)}
+.btn.red{color:var(--danger)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.status{font-size:.85rem;color:var(--muted);margin:0}
+.empty{background:var(--surface);border-radius:14px;padding:28px 20px;text-align:center;color:var(--muted);font-size:.95rem}
+.empty b{display:block;color:var(--ink);font-size:1.05rem;margin-bottom:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{font:inherit;font-size:.9rem;border:0;border-radius:999px;background:var(--surface);color:var(--ink);padding:8px 14px;min-height:36px;cursor:pointer;box-shadow:0 1px 4px rgba(120,70,20,.1)}.chip.on{background:var(--accent);color:#fff}.chip:focus-visible{outline:2px solid var(--accent)}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:1rem;flex:none}
+.rowlink{align-items:center}
+.row2{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.bar2{height:5px;border-radius:99px;background:var(--fill);overflow:hidden;margin-top:6px;max-width:140px}
+.bar2 i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#34C759,#FF9F0A)}
+.badge{font-size:.8rem!important;padding:3px 9px!important;background:#E4480F!important;color:#fff!important}
+.price{color:var(--accent)}
+.scroll{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 10px;margin:0 -2px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.dc{flex:none;width:168px;scroll-snap-align:start;background:var(--surface);border-radius:22px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;box-shadow:0 2px 12px rgba(120,70,20,.1)}
+.dc .pc{font-size:2rem;font-weight:800;letter-spacing:-.02em;color:#E4480F;line-height:1}
+.dc .nm{font-weight:600;font-size:.95rem;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dc .pr{font-size:1.1rem;font-weight:700;font-variant-numeric:tabular-nums}
+.dc .sh{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.82rem}
+.dc .sh .av{width:24px;height:24px;font-size:.72rem}
+.brand{display:flex;align-items:center;gap:12px}
+.brand svg{flex:none;border-radius:12px}
+.spark{display:block;margin-top:4px}
+.tile{position:relative;overflow:hidden}
+.tile .ico{background:rgba(255,255,255,.6)!important}
+
+html{scroll-behavior:smooth}
+button,a{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.tile,.chip,.btn,.nav,.rowlink,.dc,.back{transition:transform .15s ease,background-color .2s ease,opacity .2s ease,box-shadow .2s ease}
+.tile:active,.chip:active,.btn:active,.dc:active{transform:scale(.96)}
+.nav:active,.rowlink:active{background:var(--fill)}
+.back:active{opacity:.5}
+.btn:disabled{opacity:.55;cursor:default}
+.sk{height:64px;background:linear-gradient(90deg,var(--fill) 25%,transparent 50%,var(--fill) 75%);background-size:200% 100%;border-radius:0}
+.bar2 i{transition:width .6s ease}
+@media (prefers-reduced-motion:no-preference){
+  .enter>*{animation:rise .32s cubic-bezier(.2,.8,.2,1) both}
+  .enter>*:nth-child(2){animation-delay:.04s}.enter>*:nth-child(3){animation-delay:.08s}.enter>*:nth-child(4){animation-delay:.12s}.enter>*:nth-child(n+5){animation-delay:.16s}
+  #local>*{animation:rise .22s ease-out both}
+  .sk{animation:shim 1.3s linear infinite}
+}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes shim{to{background-position:-200% 0}}
+
+.av{display:grid!important;place-items:center;width:32px!important;height:32px!important;border-radius:9px!important;background:var(--bg)!important;color:var(--ink)!important;margin-right:10px;flex:none}
+.rw .rowlink{padding:14px 4px 14px 14px!important;gap:8px!important}
+.rw .name{font-size:.95rem}
+.rw .price{font-size:1.02rem!important}
+.rw .meta{font-size:.8rem}
+.rw{display:flex;align-items:stretch}
+.rw .rowlink{flex:1;min-width:0}
+.addb{all:unset;box-sizing:border-box;width:48px;flex:none;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.addb.in{color:var(--good)}
+.addb:focus-visible,.chk:focus-visible{outline:2px solid var(--ink);outline-offset:-2px;border-radius:8px}
+.chk{all:unset;box-sizing:border-box;width:22px;height:22px;margin:0 4px 0 16px;align-self:center;border:1.5px solid var(--muted);border-radius:50%;display:grid;place-items:center;cursor:pointer;flex:none}
+.chk.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.soon{color:var(--danger);font-weight:600}
+.hn{display:block;font-size:.78rem;color:var(--muted);margin-top:2px}
+.hn.good{color:var(--good);font-weight:600}
+.lab{font-size:.8rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 4px -6px}
+[hidden]{display:none!important}
+
+/* Čistý, dospělý vzhled: bez barevných dlaždic, stínů a ozdob */
+h1{font-size:1.9rem;font-weight:700;letter-spacing:-.03em}
+.sub{font-size:.95rem}
+.search{background:var(--surface)!important;box-shadow:none!important;border-radius:12px!important;padding-left:12px!important}
+.chip{background:var(--surface)!important;box-shadow:none!important;border-radius:10px!important;font-size:.88rem!important;color:var(--ink)}
+.chip.on{background:var(--ink)!important;color:var(--bg)!important}
+.btn{background:var(--ink)!important;color:var(--bg)!important;border-radius:12px!important;font-weight:600}
+.btn.red{background:var(--fill)!important;color:var(--danger)!important}
+.group{border-radius:14px!important}
+.card{border-radius:14px!important}
+.tiles{gap:10px}
+.tile{background:var(--surface)!important;box-shadow:none!important;border-radius:16px!important;color:var(--ink)!important;gap:22px!important;min-height:0!important;padding:16px!important}
+.tile .ico{background:transparent!important;width:auto!important;height:auto!important;border-radius:0!important;display:block;font-size:0!important;color:var(--ink)}
+.tile .ico svg{display:block}
+.tile b{font-size:1rem!important;font-weight:600}
+.tile span.s{color:var(--muted)!important;font-size:.82rem!important}
+#local:empty{display:none}
+.tile .ico{align-self:flex-start;text-align:left}
+.bar2{display:none!important}
+.row2{gap:0}
+.price{color:var(--ink)!important;font-weight:600}
+.badge{background:transparent!important;color:var(--good)!important;padding:0!important;font-size:.82rem!important;font-weight:600}
+.dc{background:var(--surface)!important;box-shadow:none!important;border-radius:16px!important;width:176px!important;gap:6px!important}
+.dc .pc{font-size:.85rem!important;font-weight:600!important;color:var(--good)!important;letter-spacing:0!important}
+.dc .nm{font-weight:500!important;font-size:.92rem!important}
+.dc .pr{font-size:1.2rem!important;font-weight:700!important;letter-spacing:-.01em}
+.dc .sh{font-size:.78rem!important;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.lab{font-size:.78rem!important;letter-spacing:.06em!important}
+.brand svg{border-radius:10px}
+</style>
+
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+(function(){
+  var SEARCH_TRIGGER = 'trig_01Tov7Sr2qMhfdeTUS3xsZf9';
+  var DEALS = {
+    'jidlo-maso': {c: '#FFD9D2', title: 'Maso', e: '🥩', sub: 'Hovězí, kuřecí, vepřové'},
+    'ovoce': {c: '#DDF2C9', title: 'Ovoce a zelenina', e: '🥕', sub: 'Čerstvé a sezónní'},
+    'mlecne': {c: '#FFF1BF', title: 'Mléčné a vejce', e: '🧀', sub: 'Mléko, sýry, jogurty, vejce'},
+    'napoje': {c: '#CFE8FF', title: 'Nápoje', e: '🥤', sub: 'Voda, džusy, pivo, káva'},
+    'drogerie': {c: '#E6DBFF', title: 'Drogerie', e: '🧴', sub: 'Prací prášky, hygiena, úklid'},
+    'kocky-jidlo': {c: '#FFE3C2', title: 'Kočky', e: '🐱', sub: 'Kapsičky, konzervy, granule'}
+  };
+  var ICON = {
+    'jidlo-maso': '<path d="M4 13.5C4 8.5 8 5 13 5c4 0 7 2.5 7 6.500S16.500 19 11.500 19C7 19 4 17.500 4 13.500z"/><circle cx="14.500" cy="11.500" r="2.500"/>',
+    'ovoce': '<path d="M12 8c-3-2-7.5 0-7.5 5 0 4 3 8 7.5 8s7.5-4 7.5-8c0-5-4.5-7-7.5-5z"/><path d="M12 8c0-2 1-4 3-5"/>',
+    'mlecne': '<path d="M3 10l18-5v12H3z"/><path d="M3 10h18"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="13" r="1.2"/>',
+    'napoje': '<path d="M7 4h10l-1.2 16H8.2z"/><path d="M7.4 9h9.2"/>',
+    'drogerie': '<path d="M10 3h4v3h-4z"/><path d="M8 6h8v14H8z"/><path d="M8 11h8"/>',
+    'kocky-jidlo': '<path d="M5 5l4 3h6l4-3v9a7 7 0 0 1-14 0z"/><circle cx="9.5" cy="13" r=".8"/><circle cx="14.5" cy="13" r=".8"/>'
+  };
+  function icon(k){return '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[k] + '</svg>'}
+  var SHOPS = ['Kaufland', 'Lidl', 'Albert', 'Penny', 'Billa', 'Tesco'];
+  var anim = true, updated = '';
+  function loadShop(){try{var v = localStorage.getItem('cenovka-shop'); return v === 'all' ? '' : (v || 'Kaufland')}catch(e){return 'Kaufland'}}
+  function saveShop(v){try{localStorage.setItem('cenovka-shop', v || 'all')}catch(e){}}
+  var shopF = loadShop();
+  var db = null, mcp = null, loaded = {jobs: false, deals: false, items: false};
+  var jobs = [], deals = [], items = [], lst = [], hist = {}, sortF = 'sleva', route = '', fireFailed = {}, lastFire = 0, note = '', confirmId = null;
+  var nf = new Intl.NumberFormat('cs-CZ', {maximumFractionDigits: 1});
+  var app = document.getElementById('app');
+
+  function esc(s){return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function safeUrl(u){return /^https?:\/\//i.test(u || '') ? u : ''}
+  function money(n, unit){return nf.format(n) + ' Kč' + (unit === 'kg' ? '/kg' : '')}
+  function dmy(s){
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s || ''); if (!m) return '';
+    return parseInt(m[3], 10) + '. ' + parseInt(m[2], 10) + '.';
+  }
+  var CHEV = '<svg class="chev" width="9" height="15" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.5l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var CAT = '🐱';
+  var FOOD = '🍗';
+  var MAG = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.5" cy="7.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 12l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
+  function norm(t){return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()}
+  function today(){var t = new Date(); return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2)}
+  function daysLeft(r){
+    if (!/^\d{4}-\d{2}-\d{2}/.test(r.until || '')) return null;
+    var d = Math.round((Date.parse(r.until.slice(0, 10) + 'T00:00:00') - Date.parse(today() + 'T00:00:00')) / 864e5);
+    return d < 0 ? -1 : d;
+  }
+  function key(r){return norm((r.name || '') + ' ' + (r.shop || '')).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)}
+  function inList(r){var k = key(r); return lst.some(function(x){return x.id === k})}
+  var PI = [
+    [/koc|kapsick|granul|whiskas|felix|sheba|stelivo/, '<path d="M5 5l4 3h6l4-3v9a7 7 0 0 1-14 0z"/><circle cx="9.5" cy="13" r=".8"/><circle cx="14.5" cy="13" r=".8"/>'],
+    [/kurec|kure|drubez|kridl|stehn|krut/, '<path d="M14 4c3 0 6 3 5 6-1 2-3 2-5 2l-3 3a2.5 2.5 0 1 1-3-3l3-3c0-2 0-5 3-5z"/>'],
+    [/hovez|veprov|maso|mlet|steak|svickov|krkovic|kliz|kyta|plec|sunk|salam|klobas|slanin|parek/, '<path d="M4 13.5C4 8.5 8 5 13 5c4 0 7 2.5 7 6.5S16.5 19 11.5 19C7 19 4 17.5 4 13.5z"/><circle cx="14.5" cy="11.5" r="2.5"/>'],
+    [/ryb|losos|treska|pstruh|tunak|kapr/, '<path d="M3 12c4-6 11-6 15 0-4 6-11 6-15 0z"/><path d="M18 12l3-3v6z"/><circle cx="8" cy="11" r=".6"/>'],
+    [/vejce|vajic/, '<path d="M12 3c4 0 6 6 6 10a6 6 0 0 1-12 0c0-4 2-10 6-10z"/>'],
+    [/syr|eidam|hermelin|mozzarel|parmaz|niva/, '<path d="M3 10l18-5v12H3z"/><path d="M3 10h18"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="13" r="1.2"/>'],
+    [/mleko|smetan|jogurt|tvaroh|maslo|kefir|zakysan/, '<path d="M10 3h4v3l2 3v11H8V9l2-3z"/><path d="M8 13h8"/>'],
+    [/chleb|rohlik|pecivo|baget|houska|kobliha|croissant|toust/, '<path d="M4 11c0-4 4-6 8-6s8 2 8 6v8H4z"/><path d="M9 9v3M13 9v3"/>'],
+    [/jablk|banan|pomeran|hrozn|jahod|citron|ovoce|hrus|mandar|kiwi|meloun|avokad|boruvk/, '<path d="M12 8c-3-2-7.5 0-7.5 5 0 4 3 8 7.5 8s7.5-4 7.5-8c0-5-4.5-7-7.5-5z"/><path d="M12 8c0-2 1-4 3-5"/>'],
+    [/rajc|okurk|paprik|brambor|cibul|mrkev|zelen|salat|zeli|houb|cesnek|cuket/, '<path d="M15 4c3 1 4 4 3 7L9 20c-2 1-4-1-3-3l5-9c0-2 1-4 4-4z"/><path d="M15 4l3-2"/>'],
+    [/pivo|vino|voda|dzus|limon|cola|napoj|kava|caj|energ|mineral|sirup|radler|fanta|sprite|prosecco/, '<path d="M7 4h10l-1.2 16H8.2z"/><path d="M7.4 9h9.2"/>'],
+    [/\bprac|aviv|persil|toaletn|zubn|sampon|\bgel|mydlo|drogerie|ariel|lenor|savo|utirk|papirov|odlicov/, '<path d="M10 3h4v3h-4z"/><path d="M8 6h8v14H8z"/><path d="M8 11h8"/>']
+  ];
+  function itemIcon(r){
+    var h = norm((r.name || '') + ' ' + (r.note || '')), p = '<path d="M3 12V5h7l10 10-7 7z"/><circle cx="7.5" cy="8.5" r="1"/>';
+    for (var i = 0; i < PI.length; i++) if (PI[i][0].test(h)){p = PI[i][1]; break}
+    return '<span class="av" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg></span>';
+  }
+  function histNote(r){
+    var h = hist[key(r)]; if (!h || !h.p) return '';
+    var prev = h.p.filter(function(e){return e.d !== r.d && e.p > 0}); if (!prev.length) return '';
+    var mn = Math.min.apply(null, prev.map(function(e){return e.p}));
+    return r.price <= mn ? '<span class="hn good">Nejnižší cena za sledované období</span>' : '<span class="hn">Dříve od ' + money(mn, r.unit) + '</span>';
+  }
+  function dealsFor(sec){return deals.filter(function(d){return d.section === sec && daysLeft(d) !== -1}).sort(function(a, b){return (a.price || 0) - (b.price || 0)})}
+  function pendingJob(pred){
+    return jobs.filter(function(j){return (j.status === 'pending' || j.status === 'running') && pred(j)})[0];
+  }
+
+  var SC = {lidl:'#0050AA', albert:'#00963F', kaufland:'#E10915', penny:'#CD1719', billa:'#E30613', tesco:'#00539F'};
+  function shopColor(n){var k = (n || '').toLowerCase().split(/[\s.]/)[0]; if (SC[k]) return SC[k]; var h = 0; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) % 360; return 'hsl(' + h + ' 45% 42%)'}
+  function avatar(n){return '<span class="av" style="background:' + shopColor(n) + '" aria-hidden="true">' + esc((n || '?').charAt(0).toUpperCase()) + '</span>'}
+  function untilText(r){
+    var d = daysLeft(r);
+    if (d === 0) return '<span class="soon">končí dnes</span>';
+    if (d === 1) return '<span class="soon">končí zítra</span>';
+    return r.until ? 'do ' + esc(dmy(r.until) || r.until) : '';
+  }
+  function resultRow(r){
+    var url = safeUrl(r.url), p = pct(r), un = untilText(r), isDeal = !!r.section, on = isDeal && inList(r);
+    var left = '<span class="row2">' + itemIcon(r) + '<span class="left"><span class="name">' + esc(r.name) + '</span><span class="meta">' + esc(r.shop || '') +
+      (un ? ' · ' + un : '') + (r.note ? ' · ' + esc(r.note) : '') + '</span>' + histNote(r) + '</span></span>';
+    var right = '<span class="right"><span class="price">' + (r.price ? money(r.price, r.unit) : '–') + '</span>' +
+      (r.was && r.was > r.price ? '<span class="was">' + money(r.was, r.unit) + '</span>' : '') + (p ? '<span class="badge">−' + p + ' %</span>' : '') + '</span>';
+    var main = url ? '<a class="rowlink" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + left + right + '</a>'
+      : '<div class="rowlink" style="cursor:default">' + left + right + '</div>';
+    var add = isDeal && db ? '<button type="button" class="addb' + (on ? ' in' : '') + '" data-act="' + (on ? 'unlist' : 'list') + '" data-id="' + esc(r.id) + '" aria-label="' + (on ? 'Odebrat ze seznamu' : 'Přidat do nákupního seznamu') + '">' +
+      (on ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>') + '</button>' : '';
+    return '<li class="rw">' + main + add + '</li>';
+  }
+  function dealCard(r){
+    var url = safeUrl(r.url), p = pct(r);
+    var inner = '<span class="pc">−' + p + ' %</span><span class="nm">' + esc(r.name) + '</span><span class="pr">' + money(r.price, r.unit) + '</span><span class="sh">' + esc(r.shop || '') + (daysLeft(r) !== null && daysLeft(r) <= 1 ? ' · končí ' + (daysLeft(r) === 0 ? 'dnes' : 'zítra') : '') + '</span>';
+    return url ? '<a class="dc" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + inner + '</a>' : '<div class="dc">' + inner + '</div>';
+  }
+  function spark(ps){
+    if (ps.length < 2) return '';
+    var v = ps.slice(-20).map(function(x){return x.p}), mn = Math.min.apply(null, v), mx = Math.max.apply(null, v), w = 120, h = 28, rg = (mx - mn) || 1;
+    var pts = v.map(function(y, i){return (i * w / (v.length - 1)).toFixed(1) + ',' + (h - 3 - (y - mn) / rg * (h - 6)).toFixed(1)}).join(' ');
+    var last = pts.split(' ').pop().split(',');
+    return '<svg class="spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Vývoj ceny"><polyline points="' + pts + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="' + last[0] + '" cy="' + last[1] + '" r="3.5" fill="var(--accent)"/></svg>';
+  }
+  function jobCard(j){
+    var head = '<div class="jhead"><b>' + esc(j.q) + '</b><button class="x" type="button" data-act="dismiss" data-id="' + esc(j.id) + '" aria-label="Skrýt hledání">×</button></div>';
+    var body;
+    if (j.status === 'pending' || j.status === 'running'){
+      body = '<p class="wait"><span class="spin"></span>Hledám ceny…</p><p class="hint">Obvykle 1 až 3 minuty, výsledek se objeví tady.' +
+        (fireFailed[j.id] ? ' Hledání se nespustilo hned, proběhne při nejbližší kontrole.' : '') + '</p>' +
+        (fireFailed[j.id] ? '<div class="bar" style="padding:0 16px 14px"><button class="btn" type="button" data-act="fire" data-id="' + esc(j.id) + '">Spustit znovu</button></div>' : '');
+    } else if (j.status === 'error'){
+      body = '<p class="sum">' + esc(j.summary || 'Hledání se nepovedlo.') + '</p>';
+    } else {
+      var rs = (j.results || []).slice().sort(function(a, b){return (a.price || 1e12) - (b.price || 1e12)});
+      body = (j.summary ? '<p class="sum">' + esc(j.summary) + '</p>' : '') +
+        (rs.length ? '<ul class="group" style="border-radius:0">' + rs.map(resultRow).join('') + '</ul>' : '<p class="sum">Nic se nenašlo.</p>');
+    }
+    return '<div class="card">' + head + body + '</div>';
+  }
+
+  function home(){
+    var searches = jobs.filter(function(j){return j.type === 'search' && !j.hidden}).slice(0, 3);
+    var live = deals.filter(function(r){return daysLeft(r) !== -1});
+    var isK = function(r){return (r.shop || '').toLowerCase().indexOf('kaufland') === 0};
+    var kauf = live.filter(isK).sort(function(a, b){return pct(b) - pct(a)}).slice(0, 8);
+    var top = live.filter(function(r){return !isK(r) && pct(r) >= 20}).sort(function(a, b){return pct(b) - pct(a)}).slice(0, 6);
+    var soon = live.filter(function(r){var d = daysLeft(r); return d !== null && d <= 1}).sort(function(a, b){return (daysLeft(a) - daysLeft(b)) || (pct(b) - pct(a))}).slice(0, 4);
+    var lcount = lst.filter(function(x){return !x.done}).length;
+    var active = items.filter(function(i){return i.status !== 'koupeno'});
+    return '<header><div class="brand"><svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="var(--ink)"/><g transform="rotate(-18 20 20)" fill="none" stroke="var(--bg)" stroke-width="2" stroke-linejoin="round"><path d="M9 14h14q2 0 3.5 1.5L31 20l-4.5 4.5Q25 26 23 26H9z"/></g><circle cx="13" cy="20" r="1.8" fill="var(--bg)"/></svg><h1>Cenovka</h1></div><p class="sub">Hledejte ve slevách nebo vyberte kategorii.</p></header>' +
+      '<form class="search" id="sForm" autocomplete="off" role="search">' + MAG +
+      '<input id="sq" type="search" enterkeyhint="search" placeholder="Hledat ve slevách…" aria-label="Co hledáte?" maxlength="120">' +
+      '</form>' +
+      '<div id="local"></div>' + (note ? '<p class="status">' + esc(note) + '</p>' : '') +
+      searches.map(jobCard).join('') +
+      '<div class="chips">' + ['kuřecí prsa','hovězí mleté','stelivo pro kočky','granule pro kočky'].map(function(c){return '<button type="button" class="chip" data-q="' + c + '">' + c + '</button>'}).join('') + '</div>' +
+      (kauf.length ? '<p class="lab">Kaufland · nejlepší slevy</p><div class="scroll">' + kauf.map(dealCard).join('') + '</div>' : '') +
+      (soon.length ? '<p class="lab">Končí brzy</p><ul class="group">' + soon.map(resultRow).join('') + '</ul>' : '') +
+      (top.length ? '<p class="lab">Další obchody</p><div class="scroll">' + top.map(dealCard).join('') + '</div>' : '') +
+      '<p class="lab">Kategorie</p><div class="tiles">' + Object.keys(DEALS).map(function(k){var d = DEALS[k], n = dealsFor(k).length;
+        return '<button type="button" class="tile" data-go="' + k + '" ><span class="ico">' + icon(k) + '</span><span><b>' + esc(d.title) + '</b><span class="s">' + (n ? n + ' slev' : esc(d.sub)) + '</span></span></button>'}).join('') + '</div>' +
+      '<ul class="group"><li><button type="button" class="nav" data-go="seznam"><span class="left"><span class="name">Nákupní seznam</span><span class="meta">' + (lcount ? lcount + ' položek k nákupu' : 'Zatím prázdný') + '</span></span>' + CHEV + '</button></li></ul>' +
+      (active.length ? '<ul class="group"><li><button type="button" class="nav" data-go="sledovane"><span class="left"><span class="name">Sledované věci</span><span class="meta">' + active.length + ' položek s cílovou cenou</span></span>' + CHEV + '</button></li></ul>' : '');
+  }
+  function submenu(key){
+    var t = TREE[key];
+    return '<button type="button" class="back" data-go="' + t.parent + '">‹ Cenovka</button><header><h1>' + esc(t.title) + '</h1></header>' +
+      '<ul class="group">' + t.rows.map(function(r){
+        var n = dealsFor(r.to).length;
+        return '<li><button type="button" class="nav" data-go="' + r.to + '"><span class="left"><span class="name">' + esc(r.title) + '</span><span class="meta">' + esc(r.sub) + (n ? ' · ' + n : '') + '</span></span>' + CHEV + '</button></li>';
+      }).join('') + '</ul>';
+  }
+  function pct(r){return r.was && r.price && r.was > r.price ? Math.round((1 - r.price / r.was) * 100) : 0}
+  function dealScreen(key){
+    var d = DEALS[key], all = dealsFor(key), upd = all.reduce(function(m, r){return r.d && r.d > m ? r.d : m}, '');
+    var rows = shopF ? all.filter(function(r){return (r.shop || '').toLowerCase().indexOf(shopF.toLowerCase()) === 0}) : all.slice();
+    rows.sort(function(a, b){
+      if (sortF === 'cena') return (a.price || 1e12) - (b.price || 1e12);
+      if (sortF === 'konci'){var x = daysLeft(a), y = daysLeft(b); return (x === null ? 99 : x) - (y === null ? 99 : y) || pct(b) - pct(a)}
+      return pct(b) - pct(a);
+    });
+    var busy = pendingJob(function(j){return j.type === 'deals' && j.section === key});
+    var chips = '<div class="chips"><button type="button" class="chip' + (!shopF ? ' on' : '') + '" data-shop="">Vše</button>' + SHOPS.map(function(sh){
+      return '<button type="button" class="chip' + (shopF === sh ? ' on' : '') + '" data-shop="' + sh + '">' + sh + '</button>'}).join('') + '</div>';
+    var sorts = '<div class="chips">' + [['sleva', 'Největší sleva'], ['cena', 'Nejnižší cena'], ['konci', 'Končí brzy']].map(function(o){
+      return '<button type="button" class="chip' + (sortF === o[0] ? ' on' : '') + '" data-sort="' + o[0] + '">' + o[1] + '</button>'}).join('') + '</div>';
+    return '<button type="button" class="back" data-go="">‹ Cenovka</button>' +
+      '<header><h1>' + esc(d.title) + '</h1><p class="sub">' + esc(d.sub) + (upd ? ' · aktualizováno ' + dmy(upd) : '') + '</p></header>' + chips + sorts +
+      (rows.length ? '<ul class="group">' + rows.map(resultRow).join('') + '</ul>' :
+        (!loaded.deals ? '<ul class="group"><li class="sk"></li><li class="sk"></li><li class="sk"></li><li class="sk"></li></ul>' : '<div class="empty"><b>' + (busy ? 'Hledám slevy…' : (all.length ? 'V tomto obchodě nic není' : 'Slevy se zatím nenačetly')) + '</b>' + (busy ? 'Obvykle to trvá 1 až 3 minuty.' : 'Klepněte na Obnovit slevy.') + '</div>')) +
+      '<p class="status">Slevy se aktualizují každé pondělí a čtvrtek ráno.</p>' +
+      (note ? '<p class="status">' + esc(note) + '</p>' : '');
+  }
+  function listScreen(){
+    var open = lst.filter(function(x){return !x.done}), done = lst.filter(function(x){return x.done});
+    var groups = {};
+    open.forEach(function(x){var k = x.shop || 'Jinde'; (groups[k] = groups[k] || []).push(x)});
+    var kf = function(n){return n.toLowerCase().indexOf('kaufland') === 0 ? 0 : 1};
+    var names = Object.keys(groups).sort(function(a, b){return kf(a) - kf(b) || a.localeCompare(b, 'cs')});
+    var total = open.reduce(function(m, x){return m + (x.unit === 'kg' ? 0 : (x.price || 0))}, 0);
+    function li(x){
+      return '<li class="rw"><button type="button" class="chk' + (x.done ? ' on' : '') + '" data-act="toggle" data-id="' + esc(x.id) + '" aria-label="' + (x.done ? 'Vrátit mezi nenakoupené' : 'Označit jako nakoupené') + '">' +
+        (x.done ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '') + '</button>' +
+        '<span class="rowlink" style="cursor:default' + (x.done ? ';opacity:.5' : '') + '"><span class="left"><span class="name"' + (x.done ? ' style="text-decoration:line-through"' : '') + '>' + esc(x.name) + '</span><span class="meta">' + (x.until ? 'do ' + esc(dmy(x.until) || x.until) : '') + '</span></span>' +
+        '<span class="right"><span class="price">' + (x.price ? money(x.price, x.unit) : '–') + '</span></span></span>' +
+        '<button type="button" class="addb" data-act="lrm" data-id="' + esc(x.id) + '" aria-label="Odebrat ze seznamu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>';
+    }
+    return '<button type="button" class="back" data-go="">‹ Cenovka</button><header><h1>Nákupní seznam</h1><p class="sub">' + (open.length ? (open.length === 1 ? '1 položka' : open.length < 5 ? open.length + ' položky' : open.length + ' položek') + (total ? ' · kusové zboží ' + money(total) : '') : 'Přidávejte slevy tlačítkem +') + '</p></header>' +
+      (!lst.length ? '<div class="empty"><b>Seznam je prázdný</b>Ve slevách klepněte na + vedle položky.</div>' : '') +
+      names.map(function(n){return '<p class="lab">' + esc(n) + '</p><ul class="group">' + groups[n].map(li).join('') + '</ul>'}).join('') +
+      (done.length ? '<p class="lab">Nakoupeno</p><ul class="group">' + done.map(li).join('') + '</ul><div class="bar"><button class="btn" type="button" data-act="clear">Smazat nakoupené</button></div>' : '');
+  }
+  function watched(){
+    var rows = items.filter(function(i){return i.status !== 'koupeno'}).map(function(it){
+      var ps = (it.prices || []).filter(function(x){return x && x.p > 0}), cur = ps.length ? ps[ps.length - 1] : null;
+      return '<li><div class="rowlink" style="cursor:default"><span class="left"><span class="name">' + esc(it.name) + '</span><span class="meta">' +
+        (it.target ? 'cíl ' + money(it.target, it.unit) : 'bez cílové ceny') + (cur && cur.shop ? ' · ' + esc(cur.shop) : '') + '</span>' + spark(ps) + '</span>' +
+        '<span class="right"><span class="price">' + (cur ? money(cur.p, it.unit) : '–') + '</span>' +
+        '</span></div></li>';
+    });
+    return '<button type="button" class="back" data-go="">‹ Cenovka</button><header><h1>Sledované věci</h1><p class="sub">Kontrola každé pondělí a čtvrtek ráno.</p></header>' +
+      (rows.length ? '<ul class="group">' + rows.join('') + '</ul>' : '<div class="empty"><b>Nic nesledujete</b>Věci se přidávají v chatu s Claude.</div>');
+  }
+
+  function localMatches(q){
+    var words = norm(q).split(/\s+/).filter(Boolean); if (!words.length) return [];
+    var pool = deals.slice(), seen = {};
+    jobs.forEach(function(j){if (j.type === 'search' && j.status === 'done') (j.results || []).forEach(function(r){pool.push(r)})});
+    return pool.filter(function(r){
+      var hay = norm((r.name || '') + ' ' + (r.shop || '') + ' ' + (r.note || ''));
+      var k = hay + '|' + r.price; if (seen[k]) return false; seen[k] = 1;
+      return words.every(function(w){return hay.indexOf(w) >= 0});
+    }).sort(function(a, b){return (a.price || 1e12) - (b.price || 1e12)}).slice(0, 15);
+  }
+  function updateLocal(){
+    var box = document.getElementById('local'), q = document.getElementById('sq'); if (!box || !q) return;
+    var t = q.value.trim();
+    if (!t){box.innerHTML = ''; return}
+    var m = localMatches(t), busy = jobs.filter(function(j){return j.type === 'search' && !j.hidden && j.q === t && (j.status === 'pending' || j.status === 'running')}).length;
+    box.innerHTML = (m.length ? '<p class="lab">Už nalezeno · ' + m.length + '</p><ul class="group">' + m.map(resultRow).join('') + '</ul>' : '<div class="empty"><b>V uložených slevách nic není</b>Zkuste hledání na internetu.</div>') +
+      '<p class="status">Nenašlo se? Napište Claude do chatu, co hledáte, a najde to na internetu.</p>';
+  }
+  function render(){
+    var html;
+    if (DEALS[route]) html = dealScreen(route);
+    else if (route === 'sledovane') html = watched();
+    else if (route === 'seznam') html = listScreen();
+    else html = home();
+    var keep = document.getElementById('sq'), val = keep ? keep.value : '', had = keep && document.activeElement === keep;
+    app.className = 'wrap' + (anim ? ' enter' : ''); anim = false;
+    app.innerHTML = html;
+    var q = document.getElementById('sq');
+    if (q && val){q.value = val; if (had) q.focus()}
+    updateLocal();
+  }
+
+  function fire(id){
+    if (!mcp) {if (id) fireFailed[id] = true; render(); return Promise.resolve()}
+    if (Date.now() - lastFire < 20000 && !id) return Promise.resolve();
+    lastFire = Date.now();
+    return mcp.callTool('Claude Code Remote', 'fire_trigger', {trigger_id: SEARCH_TRIGGER, text: 'Zpracuj čekající úkoly v kolekci jobs.'})
+      .then(function(){if (id) delete fireFailed[id]; render()}, function(){jobs.forEach(function(j){if (j.status === 'pending') fireFailed[j.id] = true}); render()});
+  }
+  function addJob(rec){
+    if (!db) return Promise.resolve();
+    rec.status = 'pending'; rec.createdAt = new Date().toISOString();
+    return db.collection('jobs').add(rec).then(function(ref){return fire(ref.id)}, function(){note = 'Uložení se nepovedlo, zkuste to znovu.'; render()});
+  }
+  function go(r){
+    route = r; confirmId = null; note = ''; anim = true;
+    if (location.hash.slice(1) !== r) location.hash = r;
+    render(); window.scrollTo(0, 0);
+  }
+
+  app.addEventListener('click', function(e){
+    var sh = e.target.closest('[data-shop]'); if (sh){shopF = sh.getAttribute('data-shop'); saveShop(shopF); render(); return}
+    var so = e.target.closest('[data-sort]'); if (so){sortF = so.getAttribute('data-sort'); render(); return}
+    var c = e.target.closest('.chip[data-q]'); if (c){var qi = document.getElementById('sq'); qi.value = c.getAttribute('data-q'); updateLocal(); return}
+    var g = e.target.closest('[data-go]'); if (g){go(g.getAttribute('data-go')); return}
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var act = b.getAttribute('data-act'), id = b.getAttribute('data-id');
+    if (act === 'web'){}
+    else if (act === 'list' && db){
+      var dd = deals.filter(function(x){return x.id === id})[0];
+      if (dd) db.doc('list/' + key(dd)).set({name: dd.name, price: dd.price || null, unit: dd.unit || '', shop: dd.shop || '', until: dd.until || '', url: dd.url || '', done: false, addedAt: new Date().toISOString()}).catch(function(){note = 'Přidání se nepovedlo.'; render()});
+    }
+    else if (act === 'unlist' && db){var d2 = deals.filter(function(x){return x.id === id})[0]; if (d2) db.doc('list/' + key(d2)).delete().catch(function(){})}
+    else if (act === 'toggle' && db){var it = lst.filter(function(x){return x.id === id})[0]; if (it) db.doc('list/' + id).update({done: !it.done}).catch(function(){})}
+    else if (act === 'lrm' && db) db.doc('list/' + id).delete().catch(function(){})
+    else if (act === 'clear' && db) lst.filter(function(x){return x.done}).forEach(function(x){db.doc('list/' + x.id).delete().catch(function(){})})
+    else if (act === 'dismiss' && db) db.doc('jobs/' + id).update({hidden: true}).catch(function(){});
+    else if (act === 'fire') fire(id);
+    else if (act === 'refresh'){
+      var sec = b.getAttribute('data-section');
+      if (!pendingJob(function(j){return j.type === 'deals' && j.section === sec})) addJob({type: 'deals', section: sec});
+    } else if (act === 'rm' && db){
+      if (confirmId === id){confirmId = null; db.doc('items/' + id).delete().catch(function(){})}
+      else {confirmId = id; render()}
+    }
+  });
+  app.addEventListener('submit', function(e){
+    if (e.target.id !== 'sForm') return;
+    e.preventDefault();
+    updateLocal();
+  });
+  app.addEventListener('input', function(e){if (e.target.id === 'sq') updateLocal()});
+  window.addEventListener('hashchange', function(){route = location.hash.slice(1); confirmId = null; anim = true; render()});
+  route = location.hash.slice(1);
+  render();
+
+  function status(m){note = m; render()}
+  function loadList(){try{lst = JSON.parse(localStorage.getItem('cenovka-list') || '[]')}catch(e){lst = []}}
+  function saveList(){try{localStorage.setItem('cenovka-list', JSON.stringify(lst))}catch(e){}}
+  loadList();
+  db = {
+    doc: function(path){
+      var id = path.split('/')[1];
+      return {
+        set: function(d){lst = lst.filter(function(x){return x.id !== id}); d.id = id; lst.push(d); saveList(); render(); return Promise.resolve()},
+        update: function(d){lst.forEach(function(x){if (x.id === id) Object.assign(x, d)}); saveList(); render(); return Promise.resolve()},
+        delete: function(){lst = lst.filter(function(x){return x.id !== id}); saveList(); render(); return Promise.resolve()}
+      };
+    }
+  };
+  fetch('data.json?v=' + Date.now()).then(function(r){return r.json()}).then(function(d){
+    deals = d.deals || []; hist = d.hist || {}; items = d.items || []; updated = d.updated || '';
+    loaded.jobs = loaded.deals = loaded.items = true; render();
+  }).catch(function(){status('Data se nepodařilo načíst. Zkontrolujte připojení.')});
+})();
+</script>
+
+</body>
+</html>
